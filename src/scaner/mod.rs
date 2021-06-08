@@ -1,70 +1,7 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
-enum TokenType {
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    COMMA,
-    DOT,
-    MINUS,
-    PLUS,
-    SEMICOLON,
-    SLASH,
-    STAR,
-
-    // One or two character tokens.
-    BANG,
-    //BangEqual,
-    EQUAL,
-    EqualEqual,
-    GREATER,
-    GreaterEqual,
-    LESS,
-    LessEqual,
-
-    // Literals.
-    IDENTIFIER,
-    STRING,
-    NUMBER,
-
-    // Keywords.
-    AND,
-    CLASS,
-    ELSE,
-    FALSE,
-    FUN,
-    FOR,
-    IF,
-    NIL,
-    OR,
-    //PRINT,
-    RETURN,
-    SUPER,
-    THIS,
-    TRUE,
-    VAR,
-    WHILE,
-
-    //EOF,
-}
-
-#[derive(Debug)]
-pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-}
-
-impl Token {
-    fn new(token_type: TokenType, lexeme: String) -> Self {
-        return Token {
-            token_type,
-            lexeme,
-        };
-    }
-}
+use crate::tokens::{Token, TokenType};
 
 pub struct Scanner {
     source: String,
@@ -328,7 +265,7 @@ impl Scanner {
 
 #[cfg(test)]
 mod tests {
-    use crate::scan::{Scanner, Token, TokenType};
+    use crate::scaner::{Scanner, Token, TokenType};
 
     #[test]
     fn num_parce() {
