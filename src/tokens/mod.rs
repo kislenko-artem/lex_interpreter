@@ -14,7 +14,7 @@ pub enum TokenType {
 
     // One or two character tokens.
     BANG,
-    //BangEqual,
+    BangEqual,
     EQUAL,
     EqualEqual,
     GREATER,
@@ -45,7 +45,8 @@ pub enum TokenType {
     VAR,
     WHILE,
 
-    //EOF,
+    EOF,
+    START,
 }
 
 #[derive(Debug)]
