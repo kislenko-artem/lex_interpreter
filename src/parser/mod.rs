@@ -38,6 +38,7 @@ pub enum Expression {
         expr: Box<Expression>,
     },
     Literal(Literal),
+    Grouping { expr: Box<Expression> },
 }
 
 
@@ -78,6 +79,27 @@ impl Parser {
 
     pub fn expression(&mut self) -> Expression {
         return self.equality();
+    }
+
+    fn consume(&mut self, tokens: Vec<TokenType>, msg: String) {
+        if self.current >= self.tokens.len() - 1 {
+            return;
+        }
+        let mut found = false;
+        for (i, source_token) in self.tokens.iter().enumerate() {
+            if i < self.current {
+                continue;
+            }
+            for cond_token in tokens.iter() {
+                if *cond_token == source_token.token_type {
+                    found = true;
+                    break
+                }
+            }
+        }
+        if !found {
+            panic!(msg)
+        }
     }
 
     fn math(&mut self, tokens: Vec<TokenType>) -> bool {
@@ -218,9 +240,14 @@ impl Parser {
             TokenType::STRING => {
                 return Expression::Literal(Literal::Str(tkn.lexeme.to_owned()));
             }
-            // TokenType::LPAREN => {
-            //     // return Expression::Literal(Literal::False(false))
-            // }
+            TokenType::LeftParen => {
+                let expr = Box::new(self.expression());
+                self.consume(
+                    vec![TokenType::RightParen],
+                    "Expect \')\' after expression".to_owned(),
+                );
+                return Expression::Grouping { expr };
+            }
             _ => {
                 panic!("wrong token {:?}", tkn.token_type)
             }
@@ -251,6 +278,22 @@ mod tests {
             Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::PLUS, "+".to_owned()),
             Token::new(TokenType::NUMBER, "3".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        println!("{:?}", tree);
+    }
+
+    #[test]
+    fn plus_parce_parent() {
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::LeftParen, "(".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::NUMBER, "3".to_owned()),
+            Token::new(TokenType::RightParen, ")".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
