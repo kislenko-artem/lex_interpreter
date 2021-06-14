@@ -265,7 +265,8 @@ impl Scanner {
 
 #[cfg(test)]
 mod tests {
-    use crate::scaner::{Scanner, Token, TokenType};
+    use crate::tokens::{Token, TokenType};
+    use crate::scaner::{Scanner};
 
     #[test]
     fn num_parce() {

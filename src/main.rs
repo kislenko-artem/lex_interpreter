@@ -23,8 +23,11 @@ impl Lox {
     fn run(line: String) {
         let sc = scaner::Scanner::new(line.to_owned());
         let tokens: Vec<Token> = sc.scan_tokens();
-        let prsr: Parser = Parser::new(tokens);
+        let mut prsr: Parser = Parser::new(tokens);
+        //let mut exr = Box::new(prsr.primary().unwrap());
+       // let mut exp: Expression = Expression::default();
         prsr.expression();
+
         println!("Tokens: {}", line);
     }
 }
