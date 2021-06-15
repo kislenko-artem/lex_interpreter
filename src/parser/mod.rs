@@ -79,6 +79,23 @@ impl Expression {
                             }
                         }
                     }
+                    Operator::Minus => {
+                        match exr_one {
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Float(v1 - v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Float)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+                        }
+                    }
 
                     _ => {}
                 }
@@ -182,8 +199,8 @@ impl Parser {
         if self.current >= self.tokens.len() - 1 {
             return expr;
         }
-        let operator = get_operator(self.tokens[self.current].token_type);
         while self.math(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
+            let operator = get_operator(self.tokens[self.current - 1].token_type);
             let right_expr = self.comparison();
             expr = Expression::Binary {
                 left: Box::new(expr),
@@ -201,8 +218,8 @@ impl Parser {
             return expr;
         }
 
-        let operator = get_operator(self.tokens[self.current].token_type);
         while self.math(vec![TokenType::GREATER, TokenType::GreaterEqual, TokenType::LESS, TokenType::LessEqual]) {
+            let operator = get_operator(self.tokens[self.current - 1].token_type);
             let right_expr = self.term();
             expr = Expression::Binary {
                 left: Box::new(expr),
@@ -220,8 +237,8 @@ impl Parser {
             return expr;
         }
 
-        let operator = get_operator(self.tokens[self.current].token_type);
         while self.math(vec![TokenType::MINUS, TokenType::PLUS]) {
+            let operator = get_operator(self.tokens[self.current - 1].token_type);
             let right_expr = self.factor();
             expr = Expression::Binary {
                 left: Box::new(expr),
@@ -239,8 +256,8 @@ impl Parser {
             return expr;
         }
 
-        let operator = get_operator(self.tokens[self.current].token_type);
         while self.math(vec![TokenType::SLASH, TokenType::STAR]) {
+            let operator = get_operator(self.tokens[self.current - 1].token_type);
             let right_expr = self.unary();
             expr = Expression::Binary {
                 left: Box::new(expr),
@@ -331,13 +348,14 @@ mod tests {
     #[test]
     fn plus_num() {
         let tokens = vec![
-            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::NUMBER, "4".to_owned()),
             Token::new(TokenType::PLUS, "+".to_owned()),
             Token::new(TokenType::NUMBER, "3".to_owned()),
+            Token::new(TokenType::MINUS, "-".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
-        println!("{:?}", tree);
         assert!(Expression::execute(tree) == Literal::Float(5.0));
     }
 
@@ -347,10 +365,12 @@ mod tests {
             Token::new(TokenType::STRING, "2".to_owned()),
             Token::new(TokenType::PLUS, "+".to_owned()),
             Token::new(TokenType::STRING, "3".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::STRING, "5".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
-        assert!(Expression::execute(tree) == Literal::Str("23".to_owned()));
+        assert!(Expression::execute(tree) == Literal::Str("235".to_owned()));
     }
 
     #[test]
