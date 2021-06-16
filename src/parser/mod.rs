@@ -256,18 +256,12 @@ impl Parser {
         if self.current >= self.tokens.len() - 1 {
             return false;
         }
-        for (i, source_token) in self.tokens.iter().enumerate() {
-            if i < self.current {
-                continue;
-            }
-            for cond_token in tokens.iter() {
-                if *cond_token == source_token.token_type {
-                    self.current += 1;
-                    return true;
-                }
+        for cond_token in tokens.iter() {
+            if *cond_token == self.tokens[self.current].token_type {
+                self.current += 1;
+                return true;
             }
         }
-        // self.current += 1;
         return false;
     }
 
@@ -410,61 +404,61 @@ mod tests {
     use crate::parser::{Parser, Expression, Literal};
     use crate::tokens::{Token, TokenType};
 
-    // #[test]
-    // fn equal_equal_parce() {
-    //     let tokens = vec![
-    //         Token::new(TokenType::NUMBER, "2".to_owned()),
-    //         Token::new(TokenType::EqualEqual, "==".to_owned()),
-    //         Token::new(TokenType::NUMBER, "2".to_owned()),
-    //     ];
-    //     let mut prsr: Parser = Parser::new(tokens);
-    //     let tree = prsr.expression();
-    //     assert!(Expression::execute(tree) == Literal::Bool(true));
-    // }
-    //
-    // #[test]
-    // fn plus_num() {
-    //     let tokens = vec![
-    //         Token::new(TokenType::NUMBER, "4".to_owned()),
-    //         Token::new(TokenType::PLUS, "+".to_owned()),
-    //         Token::new(TokenType::NUMBER, "3".to_owned()),
-    //         Token::new(TokenType::MINUS, "-".to_owned()),
-    //         Token::new(TokenType::NUMBER, "2".to_owned()),
-    //     ];
-    //     let mut prsr: Parser = Parser::new(tokens);
-    //     let tree = prsr.expression();
-    //     assert!(Expression::execute(tree) == Literal::Float(5.0));
-    // }
-    //
-    // #[test]
-    // fn plus_str() {
-    //     let tokens = vec![
-    //         Token::new(TokenType::STRING, "2".to_owned()),
-    //         Token::new(TokenType::PLUS, "+".to_owned()),
-    //         Token::new(TokenType::STRING, "3".to_owned()),
-    //         Token::new(TokenType::PLUS, "+".to_owned()),
-    //         Token::new(TokenType::STRING, "5".to_owned()),
-    //     ];
-    //     let mut prsr: Parser = Parser::new(tokens);
-    //     let tree = prsr.expression();
-    //     assert!(Expression::execute(tree) == Literal::Str("235".to_owned()));
-    // }
-    //
-    // #[test]
-    // fn plus_parce_parent() {
-    //     let tokens = vec![
-    //         Token::new(TokenType::NUMBER, "2".to_owned()),
-    //         Token::new(TokenType::PLUS, "+".to_owned()),
-    //         Token::new(TokenType::LeftParen, "(".to_owned()),
-    //         Token::new(TokenType::NUMBER, "2".to_owned()),
-    //         Token::new(TokenType::PLUS, "+".to_owned()),
-    //         Token::new(TokenType::NUMBER, "3".to_owned()),
-    //         Token::new(TokenType::RightParen, ")".to_owned()),
-    //     ];
-    //     let mut prsr: Parser = Parser::new(tokens);
-    //     let tree = prsr.expression();
-    //     //println!("{:?}", tree);
-    // }
+    #[test]
+    fn equal_equal_parce() {
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::EqualEqual, "==".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(true));
+    }
+
+    #[test]
+    fn plus_num() {
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "4".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::NUMBER, "3".to_owned()),
+            Token::new(TokenType::MINUS, "-".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Float(5.0));
+    }
+
+    #[test]
+    fn plus_str() {
+        let tokens = vec![
+            Token::new(TokenType::STRING, "2".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::STRING, "3".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::STRING, "5".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Str("235".to_owned()));
+    }
+
+    #[test]
+    fn plus_parce_parent() {
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::LeftParen, "(".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::NUMBER, "3".to_owned()),
+            Token::new(TokenType::RightParen, ")".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        //println!("{:?}", tree);
+    }
 
     #[test]
     fn factor() {
