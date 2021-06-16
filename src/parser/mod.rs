@@ -6,8 +6,7 @@ pub enum Literal {
     Float(f64),
     //Int(i64),
     Str(String),
-    True(bool),
-    False(bool),
+    Bool(bool),
     Nil,
 }
 
@@ -95,6 +94,84 @@ impl Expression {
                                 panic!("wrong operation")
                             }
                         }
+                    }
+                    Operator::Star => {
+                        match exr_one {
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Float(v1 * v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Float)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+                        }
+                    }
+                    Operator::Slash => {
+                        match exr_one {
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Float(v1 / v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Float)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+                        }
+                    }
+                    Operator::EqualEqual => {
+                        match exr_one {
+                            Literal::Bool(v1) => {
+                                match exr_two {
+                                    Literal::Bool(v2) => {
+                                        return Literal::Bool(v1 == v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Bool)")
+                                    }
+                                }
+                            }
+                            Literal::Str(v1) => {
+                                match exr_two {
+                                    Literal::Str(v2) => {
+                                        return Literal::Bool(v1 == v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Bool(v1 == v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Float)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+                        }
+
+                    }
+                    Operator::GreaterThan => {
+
+                    }
+                    Operator::LessThan => {
+
                     }
 
                     _ => {}
@@ -286,10 +363,10 @@ impl Parser {
         self.current += 1;
         match tkn.token_type {
             TokenType::FALSE => {
-                return Expression::Literal(Literal::False(false));
+                return Expression::Literal(Literal::Bool(false));
             }
             TokenType::TRUE => {
-                return Expression::Literal(Literal::True(true));
+                return Expression::Literal(Literal::Bool(true));
             }
             TokenType::NIL => {
                 return Expression::Literal(Literal::Nil);
@@ -333,59 +410,74 @@ mod tests {
     use crate::parser::{Parser, Expression, Literal};
     use crate::tokens::{Token, TokenType};
 
-    #[test]
-    fn equal_equal_parce() {
-        let tokens = vec![
-            Token::new(TokenType::NUMBER, "2".to_owned()),
-            Token::new(TokenType::EqualEqual, "==".to_owned()),
-            Token::new(TokenType::NUMBER, "3".to_owned()),
-        ];
-        let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression();
-        println!("{:?}", tree);
-    }
+    // #[test]
+    // fn equal_equal_parce() {
+    //     let tokens = vec![
+    //         Token::new(TokenType::NUMBER, "2".to_owned()),
+    //         Token::new(TokenType::EqualEqual, "==".to_owned()),
+    //         Token::new(TokenType::NUMBER, "2".to_owned()),
+    //     ];
+    //     let mut prsr: Parser = Parser::new(tokens);
+    //     let tree = prsr.expression();
+    //     assert!(Expression::execute(tree) == Literal::Bool(true));
+    // }
+    //
+    // #[test]
+    // fn plus_num() {
+    //     let tokens = vec![
+    //         Token::new(TokenType::NUMBER, "4".to_owned()),
+    //         Token::new(TokenType::PLUS, "+".to_owned()),
+    //         Token::new(TokenType::NUMBER, "3".to_owned()),
+    //         Token::new(TokenType::MINUS, "-".to_owned()),
+    //         Token::new(TokenType::NUMBER, "2".to_owned()),
+    //     ];
+    //     let mut prsr: Parser = Parser::new(tokens);
+    //     let tree = prsr.expression();
+    //     assert!(Expression::execute(tree) == Literal::Float(5.0));
+    // }
+    //
+    // #[test]
+    // fn plus_str() {
+    //     let tokens = vec![
+    //         Token::new(TokenType::STRING, "2".to_owned()),
+    //         Token::new(TokenType::PLUS, "+".to_owned()),
+    //         Token::new(TokenType::STRING, "3".to_owned()),
+    //         Token::new(TokenType::PLUS, "+".to_owned()),
+    //         Token::new(TokenType::STRING, "5".to_owned()),
+    //     ];
+    //     let mut prsr: Parser = Parser::new(tokens);
+    //     let tree = prsr.expression();
+    //     assert!(Expression::execute(tree) == Literal::Str("235".to_owned()));
+    // }
+    //
+    // #[test]
+    // fn plus_parce_parent() {
+    //     let tokens = vec![
+    //         Token::new(TokenType::NUMBER, "2".to_owned()),
+    //         Token::new(TokenType::PLUS, "+".to_owned()),
+    //         Token::new(TokenType::LeftParen, "(".to_owned()),
+    //         Token::new(TokenType::NUMBER, "2".to_owned()),
+    //         Token::new(TokenType::PLUS, "+".to_owned()),
+    //         Token::new(TokenType::NUMBER, "3".to_owned()),
+    //         Token::new(TokenType::RightParen, ")".to_owned()),
+    //     ];
+    //     let mut prsr: Parser = Parser::new(tokens);
+    //     let tree = prsr.expression();
+    //     //println!("{:?}", tree);
+    // }
 
     #[test]
-    fn plus_num() {
+    fn factor() {
         let tokens = vec![
-            Token::new(TokenType::NUMBER, "4".to_owned()),
-            Token::new(TokenType::PLUS, "+".to_owned()),
-            Token::new(TokenType::NUMBER, "3".to_owned()),
-            Token::new(TokenType::MINUS, "-".to_owned()),
-            Token::new(TokenType::NUMBER, "2".to_owned()),
-        ];
-        let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression();
-        assert!(Expression::execute(tree) == Literal::Float(5.0));
-    }
-
-    #[test]
-    fn plus_str() {
-        let tokens = vec![
-            Token::new(TokenType::STRING, "2".to_owned()),
-            Token::new(TokenType::PLUS, "+".to_owned()),
-            Token::new(TokenType::STRING, "3".to_owned()),
-            Token::new(TokenType::PLUS, "+".to_owned()),
-            Token::new(TokenType::STRING, "5".to_owned()),
-        ];
-        let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression();
-        assert!(Expression::execute(tree) == Literal::Str("235".to_owned()));
-    }
-
-    #[test]
-    fn plus_parce_parent() {
-        let tokens = vec![
-            Token::new(TokenType::NUMBER, "2".to_owned()),
-            Token::new(TokenType::PLUS, "+".to_owned()),
-            Token::new(TokenType::LeftParen, "(".to_owned()),
             Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::PLUS, "+".to_owned()),
             Token::new(TokenType::NUMBER, "3".to_owned()),
-            Token::new(TokenType::RightParen, ")".to_owned()),
+            Token::new(TokenType::STAR, "*".to_owned()),
+            Token::new(TokenType::NUMBER, "5".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
-        println!("{:?}", tree);
+        println!("factor {:?}", Expression::execute(tree.clone()));
+        assert!(Expression::execute(tree) == Literal::Float(17.0));
     }
 }
