@@ -456,6 +456,9 @@ impl Parser {
         if self.current >= self.tokens.len() - 1 {
             return false;
         }
+        if self.tokens[self.current].token_type == TokenType::RightParen {
+            self.current += 1;
+        }
         for cond_token in tokens.iter() {
             if *cond_token == self.tokens[self.current].token_type {
                 self.current += 1;
@@ -799,8 +802,6 @@ mod tests {
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
-        println!("{:?}", tree);
-        println!("{:?}", Expression::execute(tree.clone()));
         assert!(Expression::execute(tree) == Literal::Float(18.0));
     }
 }
