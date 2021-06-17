@@ -25,6 +25,7 @@ pub enum Operator {
     Star,
     Slash,
     Bang,
+    UnaryMinus,
 }
 
 #[derive(Debug, Clone)]
@@ -43,7 +44,7 @@ pub enum Expression {
 }
 
 impl Expression {
-    fn execute(expr: Expression) -> Literal {
+    pub fn execute(expr: Expression) -> Literal {
 
         match expr {
             Expression::Binary {left, operator, right} => {
@@ -341,12 +342,29 @@ impl Expression {
                                                 return Literal::Bool(true);
                                             }
                                         }
-                                    }
+                                    },
                                     _ => {
                                         panic!("wrong unary")
                                     }
                                 }
 
+                            }
+                            _ => {}
+                        }
+                    }
+                    Operator::UnaryMinus => {
+
+                        match *expr {
+                            Expression::Literal(v) => {
+                                match v {
+
+                                    Literal::Float(v) => {
+                                        return Literal::Float(v * -1.0);
+                                    }
+                                    _ => {
+                                        panic!("wrong unary")
+                                    }
+                                }
                             }
                             _ => {}
                         }
@@ -392,6 +410,14 @@ fn get_operator(token: TokenType) -> Operator {
     }
 }
 
+fn get_unary_operator(token: TokenType) -> Operator {
+    match token {
+        TokenType::MINUS => Operator::UnaryMinus,
+        TokenType::BANG => Operator::Bang,
+        _ => unreachable!(),
+    }
+}
+
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
@@ -422,7 +448,7 @@ impl Parser {
             }
         }
         if !found {
-            panic!(msg)
+            panic!("{}", msg)
         }
     }
 
@@ -515,8 +541,8 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Expression {
-        if self.math(vec![TokenType::BANG]) {
-            let operator = get_operator(self.tokens[self.current-1].token_type);
+        if self.math(vec![TokenType::BANG, TokenType::MINUS]) {
+            let operator = get_unary_operator(self.tokens[self.current-1].token_type);
             let expr = self.unary();
             return Expression::Unary {
                 expr: Box::new(expr),
@@ -689,6 +715,20 @@ mod tests {
     }
 
     #[test]
+    fn multiply_unary() {
+        let tokens = vec![
+            Token::new(TokenType::MINUS, "-".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::STAR, "".to_owned()),
+            Token::new(TokenType::NUMBER, "3".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Float(-3.0));
+
+    }
+
+    #[test]
     fn plus_num() {
         let tokens = vec![
             Token::new(TokenType::NUMBER, "4".to_owned()),
@@ -744,5 +784,23 @@ mod tests {
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
         assert!(Expression::execute(tree) == Literal::Float(17.0));
+    }
+
+    #[test]
+    fn factor_paren() {
+        let tokens = vec![
+            Token::new(TokenType::LeftParen, "".to_owned()),
+            Token::new(TokenType::NUMBER, "3".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::NUMBER, "3".to_owned()),
+            Token::new(TokenType::RightParen, "".to_owned()),
+            Token::new(TokenType::STAR, "*".to_owned()),
+            Token::new(TokenType::NUMBER, "5".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        println!("{:?}", tree);
+        println!("{:?}", Expression::execute(tree.clone()));
+        assert!(Expression::execute(tree) == Literal::Float(18.0));
     }
 }

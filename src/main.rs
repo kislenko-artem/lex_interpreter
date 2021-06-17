@@ -1,6 +1,6 @@
 use std::io::{self, BufRead};
 use crate::tokens::Token;
-use crate::parser::Parser;
+use crate::parser::{Parser, Expression};
 
 mod scaner;
 mod tokens;
@@ -24,11 +24,8 @@ impl Lox {
         let sc = scaner::Scanner::new(line.to_owned());
         let tokens: Vec<Token> = sc.scan_tokens();
         let mut prsr: Parser = Parser::new(tokens);
-        //let mut exr = Box::new(prsr.primary().unwrap());
-       // let mut exp: Expression = Expression::default();
-        prsr.expression();
-
-        println!("Tokens: {}", line);
+        let tree = prsr.expression();
+        println!("Result: {:?}", Expression::execute(tree));
     }
 }
 

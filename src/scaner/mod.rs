@@ -46,7 +46,7 @@ impl Scanner {
                 panic!("worng symbol general")
             }
             let c_string: String = c_string_opt.unwrap();
-            println!("Symbol: {}", c_string);
+            // println!("Symbol: {}", c_string);
             let c: &str = c_string.as_str();
 
 
@@ -82,49 +82,63 @@ impl Scanner {
                     token.push(Token::new(TokenType::STAR, "".to_owned()))
                 }
                 "!" => {
-                    let c_string_opt = self.advance();
+                    let c_string_opt = self.next();
                     if c_string_opt.is_none() {
-                        panic!("worng symbol")
+                        panic!("wrong symbol")
                     }
                     let c_string: String = c_string_opt.unwrap();
                     let c: &str = c_string.as_str();
-                    if c == "=" {
-                        token.push(Token::new(TokenType::BANG, "".to_owned()))
+                    match c {
+                        "=" => {
+                            self.advance();
+                            token.push(Token::new(TokenType::BangEqual, "".to_owned()))
+
+                        },
+                        _ => token.push(Token::new(TokenType::BANG, "".to_owned()))
                     }
                 }
                 "=" => {
-                    let c_string_opt = self.advance();
+                    let c_string_opt = self.next();
                     if c_string_opt.is_none() {
                         panic!("worng symbol =")
                     }
                     let c_string: String = c_string_opt.unwrap();
                     let c: &str = c_string.as_str();
                     match c {
-                        "=" => token.push(Token::new(TokenType::EqualEqual, "".to_owned())),
+                        "=" => {
+                            self.advance();
+                            token.push(Token::new(TokenType::EqualEqual, "".to_owned()))
+                        },
                         _ => token.push(Token::new(TokenType::EQUAL, "".to_owned()))
                     }
                 }
                 "<" => {
-                    let c_string_opt = self.advance();
+                    let c_string_opt = self.next();
                     if c_string_opt.is_none() {
                         panic!("worng symbol <")
                     }
                     let c_string: String = c_string_opt.unwrap();
                     let c: &str = c_string.as_str();
                     match c {
-                        "=" => token.push(Token::new(TokenType::LessEqual, "".to_owned())),
+                        "=" => {
+                            self.advance();
+                            token.push(Token::new(TokenType::LessEqual, "".to_owned()))
+                        },
                         _ => token.push(Token::new(TokenType::LESS, "".to_owned()))
                     }
                 }
                 ">" => {
-                    let c_string_opt = self.advance();
+                    let c_string_opt = self.next();
                     if c_string_opt.is_none() {
                         panic!("worng symbol >")
                     }
                     let c_string: String = c_string_opt.unwrap();
                     let c: &str = c_string.as_str();
                     match c {
-                        "=" => token.push(Token::new(TokenType::GreaterEqual, "".to_owned())),
+                        "=" => {
+                            self.advance();
+                            token.push(Token::new(TokenType::GreaterEqual, "".to_owned()))
+                        },
                         _ => token.push(Token::new(TokenType::GREATER, "".to_owned()))
                     }
                 }
@@ -194,6 +208,7 @@ impl Scanner {
                                     }
                                     let c_string: String = c_string_opt.unwrap();
                                     if !Scanner::is_digit(&c_string) {
+                                        self.current -= 1;
                                         break;
                                     }
                                     string_v.push_str(&c_string);
@@ -210,6 +225,10 @@ impl Scanner {
                                     }
                                     let c_string: String = c_string_opt.unwrap();
                                     if c_string == " " {
+                                        break;
+                                    }
+                                    if c_string == "=" || c_string == ">" || c_string == "<" || c_string == "+" || c_string == "-" || c_string == "*" || c_string == "/" || c_string == ")" || c_string == "(" {
+                                        self.current -= 1;
                                         break;
                                     }
                                     string_v.push_str(&c_string);
@@ -257,8 +276,20 @@ impl Scanner {
         }
     }
 
+    fn next(&mut self) -> Option<String> {
+        let ch: Option<char> = self.source.chars().nth(self.current);
+        match ch {
+            Some(ch) => {
+                return Some(ch.to_string());
+            }
+            None => {
+                return None;
+            }
+        }
+    }
+
     fn is_at_end(&self) -> bool {
-        return self.current >= self.source.len();
+       return self.current >= self.source.len();
     }
 }
 
@@ -269,14 +300,26 @@ mod tests {
     use crate::scaner::{Scanner};
 
     #[test]
-    fn num_parce() {
-        let sc = Scanner::new("11+12".to_owned());
+    fn num_parce_simple() {
+        let sc = Scanner::new("1+2".to_owned());
         let tokens: Vec<Token> = sc.scan_tokens();
         assert!(tokens[0].token_type == TokenType::NUMBER);
         assert!(tokens[1].token_type == TokenType::PLUS);
         assert!(tokens[2].token_type == TokenType::NUMBER);
-        assert!(tokens[0].lexeme == "11");
-        assert!(tokens[2].lexeme == "12");
+        assert!(tokens[0].lexeme == "1");
+        assert!(tokens[2].lexeme == "2");
+    }
+
+    #[test]
+    fn num_parce() {
+        let sc = Scanner::new("-11+12".to_owned());
+        let tokens: Vec<Token> = sc.scan_tokens();
+        assert!(tokens[0].token_type == TokenType::MINUS);
+        assert!(tokens[1].token_type == TokenType::NUMBER);
+        assert!(tokens[2].token_type == TokenType::PLUS);
+        assert!(tokens[3].token_type == TokenType::NUMBER);
+        assert!(tokens[1].lexeme == "11");
+        assert!(tokens[3].lexeme == "12");
     }
 
     #[test]
@@ -304,6 +347,16 @@ mod tests {
     }
 
     #[test]
+    fn unary_bool() {
+        let sc = Scanner::new("!true==false".to_owned());
+        let tokens: Vec<Token> = sc.scan_tokens();
+        assert!(tokens[0].token_type == TokenType::BANG);
+        assert!(tokens[1].token_type == TokenType::TRUE);
+        assert!(tokens[2].token_type == TokenType::EqualEqual);
+        assert!(tokens[3].token_type == TokenType::FALSE);
+    }
+
+    #[test]
     fn gram_parce() {
         let sc = Scanner::new("1 - (2 * 3) < 4 == false".to_owned());
         let tokens: Vec<Token> = sc.scan_tokens();
@@ -313,9 +366,54 @@ mod tests {
         assert!(tokens[3].token_type == TokenType::NUMBER);
         assert!(tokens[4].token_type == TokenType::STAR);
         assert!(tokens[5].token_type == TokenType::NUMBER);
-        assert!(tokens[6].token_type == TokenType::LESS);
-        assert!(tokens[7].token_type == TokenType::NUMBER);
-        assert!(tokens[8].token_type == TokenType::EqualEqual);
-        assert!(tokens[9].token_type == TokenType::FALSE);
+        assert!(tokens[6].token_type == TokenType::RightParen);
+        assert!(tokens[7].token_type == TokenType::LESS);
+        assert!(tokens[8].token_type == TokenType::NUMBER);
+        assert!(tokens[9].token_type == TokenType::EqualEqual);
+        assert!(tokens[10].token_type == TokenType::FALSE);
+    }
+
+    #[test]
+    fn gram_parce_no_spaces() {
+        let sc = Scanner::new("1-(2*3)<4==false".to_owned());
+        let tokens: Vec<Token> = sc.scan_tokens();
+        assert!(tokens[0].token_type == TokenType::NUMBER);
+        assert!(tokens[1].token_type == TokenType::MINUS);
+        assert!(tokens[2].token_type == TokenType::LeftParen);
+        assert!(tokens[3].token_type == TokenType::NUMBER);
+        assert!(tokens[4].token_type == TokenType::STAR);
+        assert!(tokens[5].token_type == TokenType::NUMBER);
+        assert!(tokens[6].token_type == TokenType::RightParen);
+        assert!(tokens[7].token_type == TokenType::LESS);
+        assert!(tokens[8].token_type == TokenType::NUMBER);
+        assert!(tokens[9].token_type == TokenType::EqualEqual);
+        assert!(tokens[10].token_type == TokenType::FALSE);
+    }
+
+    #[test]
+    fn less() {
+        let sc = Scanner::new("1<1".to_owned());
+        let tokens: Vec<Token> = sc.scan_tokens();
+        assert!(tokens[0].token_type == TokenType::NUMBER);
+        assert!(tokens[1].token_type == TokenType::LESS);
+        assert!(tokens[2].token_type == TokenType::NUMBER);
+    }
+
+    #[test]
+    fn less_eq() {
+        let sc = Scanner::new("1<=1".to_owned());
+        let tokens: Vec<Token> = sc.scan_tokens();
+        assert!(tokens[0].token_type == TokenType::NUMBER);
+        assert!(tokens[1].token_type == TokenType::LessEqual);
+        assert!(tokens[2].token_type == TokenType::NUMBER);
+    }
+
+    #[test]
+    fn greater_eq() {
+        let sc = Scanner::new("1>=1".to_owned());
+        let tokens: Vec<Token> = sc.scan_tokens();
+        assert!(tokens[0].token_type == TokenType::NUMBER);
+        assert!(tokens[1].token_type == TokenType::GreaterEqual);
+        assert!(tokens[2].token_type == TokenType::NUMBER);
     }
 }
