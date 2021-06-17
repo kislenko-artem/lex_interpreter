@@ -15,8 +15,10 @@ pub enum Operator {
     // The possible operators for the binary and unary expression
     BangEqual,
     EqualEqual,
-    LessThan,
-    GreaterThan,
+    Less,
+    Greater,
+    LessEqual,
+    GreaterEqual,
     Plus,
     Minus,
     Comma,
@@ -167,27 +169,199 @@ impl Expression {
                         }
 
                     }
-                    Operator::GreaterThan => {
+                    Operator::BangEqual => {
+                        match exr_one {
+                            Literal::Bool(v1) => {
+                                match exr_two {
+                                    Literal::Bool(v2) => {
+                                        return Literal::Bool(v1 != v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Bool)")
+                                    }
+                                }
+                            }
+                            Literal::Str(v1) => {
+                                match exr_two {
+                                    Literal::Str(v2) => {
+                                        return Literal::Bool(v1 != v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Bool(v1 != v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Float)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+                        }
 
                     }
-                    Operator::LessThan => {
+                    Operator::Greater => {
+                        match exr_one {
+                            Literal::Str(v1) => {
+                                match exr_two {
+                                    Literal::Str(v2) => {
+                                        return Literal::Bool(v1 > v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Bool(v1 > v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+
+                        }
+                    }
+                    Operator::Less => {
+                        match exr_one {
+                            Literal::Str(v1) => {
+                                match exr_two {
+                                    Literal::Str(v2) => {
+                                        return Literal::Bool(v1 < v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Bool(v1 < v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+
+                        }
+
+                    }
+                    Operator::GreaterEqual => {
+                        match exr_one {
+                            Literal::Str(v1) => {
+                                match exr_two {
+                                    Literal::Str(v2) => {
+                                        return Literal::Bool(v1 >= v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Bool(v1 >= v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+
+                        }
+
+                    }
+                    Operator::LessEqual => {
+                        match exr_one {
+                            Literal::Str(v1) => {
+                                match exr_two {
+                                    Literal::Str(v2) => {
+                                        return Literal::Bool(v1 <= v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            Literal::Float(v1) => {
+                                match exr_two {
+                                    Literal::Float(v2) => {
+                                        return Literal::Bool(v1 <= v2);
+                                    }
+                                    _ => {
+                                        panic!("wrong format (Str)")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong operation")
+                            }
+
+                        }
 
                     }
 
                     _ => {}
                 }
             }
-            Expression::Unary { .. } => {
+            Expression::Unary { expr, operator } => {
+                match operator {
+                    Operator::Bang => {
+                        match *expr {
+                            Expression::Literal(v) => {
+                                match v {
+                                    Literal::Bool(v) => {
+                                        match v {
+                                            true => {
+                                                return Literal::Bool(false);
+                                            }
+                                            false => {
+                                                return Literal::Bool(true);
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        panic!("wrong unary")
+                                    }
+                                }
 
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
             }
             Expression::Literal(v) => {
                 return v.to_owned()
             }
-            Expression::Grouping { .. } => {
-                //return execute(expr.expr);
+            Expression::Grouping { expr } => {
+                return Expression::execute(*expr);
             }
         }
-        panic!("sdfsdf")
+        panic!("wrong token")
     }
 }
 
@@ -202,10 +376,10 @@ fn get_operator(token: TokenType) -> Operator {
     match token {
         TokenType::BangEqual => Operator::BangEqual,
         TokenType::EqualEqual => Operator::EqualEqual,
-        TokenType::LessEqual => Operator::LessThan,
-        //TokenType::LESSTHANEQUAL => Operator::LessThanEqual,
-        TokenType::GreaterEqual => Operator::GreaterThan,
-        //TokenType::GREATERTHANEQUAL => Operator::GreaterThanEqual,
+        TokenType::LESS => Operator::Less,
+        TokenType::GREATER => Operator::Greater,
+        TokenType::LessEqual => Operator::LessEqual,
+        TokenType::GreaterEqual => Operator::GreaterEqual,
         TokenType::PLUS => Operator::Plus,
         TokenType::MINUS => Operator::Minus,
         TokenType::STAR => Operator::Star,
@@ -342,7 +516,7 @@ impl Parser {
 
     fn unary(&mut self) -> Expression {
         if self.math(vec![TokenType::BANG]) {
-            let operator = get_operator(self.tokens[self.current].token_type);
+            let operator = get_operator(self.tokens[self.current-1].token_type);
             let expr = self.unary();
             return Expression::Unary {
                 expr: Box::new(expr),
@@ -405,11 +579,109 @@ mod tests {
     use crate::tokens::{Token, TokenType};
 
     #[test]
+    fn less() {
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::LESS, "".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(true));
+
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::LESS, "".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(false));
+    }
+
+    #[test]
+    fn less_eq() {
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::LessEqual, "".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(true));
+
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::LessEqual, "".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(false));
+    }
+
+    #[test]
+    fn bigger() {
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::GREATER, "".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(true));
+
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::GREATER, "".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(false));
+    }
+
+    #[test]
     fn equal_equal_parce() {
         let tokens = vec![
             Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::EqualEqual, "==".to_owned()),
             Token::new(TokenType::NUMBER, "2".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(true));
+    }
+
+    #[test]
+    fn bang_equal_parce() {
+        let tokens = vec![
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::BangEqual, "!=".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(false));
+    }
+
+    #[test]
+    fn unary_equal_parce() {
+        let tokens = vec![
+            Token::new(TokenType::BANG, "".to_owned()),
+            Token::new(TokenType::TRUE, "".to_owned()),
+            Token::new(TokenType::EqualEqual, "==".to_owned()),
+            Token::new(TokenType::TRUE, "".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.expression();
+        assert!(Expression::execute(tree) == Literal::Bool(false));
+
+        let tokens = vec![
+            Token::new(TokenType::BANG, "".to_owned()),
+            Token::new(TokenType::FALSE, "".to_owned()),
+            Token::new(TokenType::EqualEqual, "==".to_owned()),
+            Token::new(TokenType::TRUE, "".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
@@ -445,19 +717,19 @@ mod tests {
     }
 
     #[test]
-    fn plus_parce_parent() {
+    fn plus_parce_paren() {
         let tokens = vec![
-            Token::new(TokenType::NUMBER, "2".to_owned()),
-            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::NUMBER, "8".to_owned()),
+            Token::new(TokenType::MINUS, "-".to_owned()),
             Token::new(TokenType::LeftParen, "(".to_owned()),
-            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::NUMBER, "5".to_owned()),
             Token::new(TokenType::PLUS, "+".to_owned()),
-            Token::new(TokenType::NUMBER, "3".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::RightParen, ")".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
-        //println!("{:?}", tree);
+        assert!(Expression::execute(tree) == Literal::Float(1.0));
     }
 
     #[test]
@@ -471,7 +743,6 @@ mod tests {
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
-        println!("factor {:?}", Expression::execute(tree.clone()));
         assert!(Expression::execute(tree) == Literal::Float(17.0));
     }
 }
