@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 
-use crate::tokens::{Token, TokenType};
+use crate::lexer::tokens::{Token, TokenType};
 
 pub struct Scanner {
     source: String,
@@ -296,8 +296,8 @@ impl Scanner {
 
 #[cfg(test)]
 mod tests {
-    use crate::tokens::{Token, TokenType};
-    use crate::scaner::{Scanner};
+    use crate::lexer::tokens::{Token, TokenType};
+    use crate::lexer::parser::{Scanner};
 
     #[test]
     fn num_parce_simple() {

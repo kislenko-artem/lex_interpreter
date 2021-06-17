@@ -1,4 +1,4 @@
-use crate::tokens::{Token, TokenType};
+use crate::lexer::tokens::{Token, TokenType};
 
 #[derive(Debug, PartialOrd, Clone, PartialEq)]
 pub enum Literal {
@@ -604,8 +604,8 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::parser::{Parser, Expression, Literal};
-    use crate::tokens::{Token, TokenType};
+    use crate::lexer::ast::{Parser, Expression, Literal};
+    use crate::lexer::tokens::{Token, TokenType};
 
     #[test]
     fn less() {

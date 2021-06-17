@@ -1,10 +1,9 @@
 use std::io::{self, BufRead};
-use crate::tokens::Token;
-use crate::parser::{Parser, Expression};
+use crate::lexer::tokens::Token;
+use crate::lexer::ast::{Parser, Expression};
+use crate::lexer::parser::{Scanner};
 
-mod scaner;
-mod tokens;
-mod parser;
+mod lexer;
 
 pub struct Lox {}
 
@@ -21,7 +20,7 @@ impl Lox {
     }
 
     fn run(line: String) {
-        let sc = scaner::Scanner::new(line.to_owned());
+        let sc = Scanner::new(line.to_owned());
         let tokens: Vec<Token> = sc.scan_tokens();
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
