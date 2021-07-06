@@ -39,6 +39,7 @@ impl Scanner {
         keywords.insert("true".to_owned(), TokenType::TRUE);
         keywords.insert("var".to_owned(), TokenType::VAR);
         keywords.insert("while".to_owned(), TokenType::WHILE);
+        keywords.insert("print".to_owned(), TokenType::PRINT);
 
         loop {
             let c_string_opt = self.advance();
@@ -415,5 +416,14 @@ mod tests {
         assert!(tokens[0].token_type == TokenType::NUMBER);
         assert!(tokens[1].token_type == TokenType::GreaterEqual);
         assert!(tokens[2].token_type == TokenType::NUMBER);
+    }
+
+    #[test]
+    fn print() {
+        let sc = Scanner::new("print \"some string\";".to_owned());
+        let tokens: Vec<Token> = sc.scan_tokens();
+        assert!(tokens[0].token_type == TokenType::PRINT);
+        assert!(tokens[1].token_type == TokenType::STRING);
+        assert!(tokens[2].token_type == TokenType::SEMICOLON);
     }
 }

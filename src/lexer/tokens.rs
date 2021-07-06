@@ -37,7 +37,7 @@ pub enum TokenType {
     IF,
     NIL,
     OR,
-    //PRINT,
+    PRINT,
     RETURN,
     SUPER,
     THIS,

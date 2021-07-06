@@ -383,6 +383,22 @@ impl Expression {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum Statement {
+    Print(Expression),
+    Empty,
+}
+
+impl Statement {
+    pub fn execute(stmt: Statement) {
+        match stmt {
+            Statement::Print(v) => {
+                println!("{:?}", v);
+            }
+            Statement::Empty => {}
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Parser {
@@ -430,6 +446,29 @@ impl Parser {
     pub fn expression(&mut self) -> Expression {
         return self.equality();
     }
+
+    pub fn statement(&mut self) -> Statement {
+        return self.print_st();
+    }
+
+    // statement
+
+    fn print_st(&mut self) -> Statement {
+        let tkn = &self.tokens[self.current];
+        if tkn.token_type != TokenType::PRINT {
+            return Statement::Empty
+        }
+        self.current += 1;
+        let expr = self.expression();
+        self.consume(
+            vec![TokenType::SEMICOLON],
+            "Expect \';\' after expression".to_owned(),
+        );
+        return Statement::Print(expr);
+    }
+
+
+    // not statement
 
     fn consume(&mut self, tokens: Vec<TokenType>, msg: String) {
         if self.current >= self.tokens.len() - 1 {
@@ -803,5 +842,17 @@ mod tests {
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.expression();
         assert!(Expression::execute(tree) == Literal::Float(18.0));
+    }
+
+    #[test]
+    fn print_st() {
+        let tokens = vec![
+            Token::new(TokenType::PRINT, "".to_owned()),
+            Token::new(TokenType::STRING, "3".to_owned()),
+            Token::new(TokenType::SEMICOLON, "+".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.statement();
+        println!("{:?}", tree)
     }
 }
