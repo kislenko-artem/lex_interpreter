@@ -26,10 +26,8 @@ impl Lox {
         let mut prsr: Parser = Parser::new(tokens);
         //let tree = prsr.expression();
         //println!("Result: {:?}", Expression::execute(tree.clone()));
-        let tree = prsr.statement(&mut env);
-        for d in tree {
-            Statement::execute(d, &mut env);
-        }
+        let stmts = prsr.statement(&mut env);
+        Statement::execute(stmts, &mut env);
     }
 }
 
