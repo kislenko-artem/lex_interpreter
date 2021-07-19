@@ -50,7 +50,6 @@ impl Scanner {
             // println!("Symbol: {}", c_string);
             let c: &str = c_string.as_str();
 
-
             match c {
                 "(" => {
                     token.push(Token::new(TokenType::LeftParen, "".to_owned()))
@@ -228,7 +227,7 @@ impl Scanner {
                                     if c_string == " " {
                                         break;
                                     }
-                                    if c_string == "=" || c_string == ">" || c_string == "<" || c_string == "+" || c_string == "-" || c_string == "*" || c_string == "/" || c_string == ")" || c_string == "(" {
+                                    if c_string == ";" || c_string == "=" || c_string == ">" || c_string == "<" || c_string == "+" || c_string == "-" || c_string == "*" || c_string == "/" || c_string == ")" || c_string == "(" {
                                         self.current -= 1;
                                         break;
                                     }
@@ -376,8 +375,9 @@ mod tests {
 
     #[test]
     fn gram_parce_no_spaces() {
-        let sc = Scanner::new("1-(2*3)<4==false".to_owned());
+        let sc = Scanner::new("1-(2*3)<4==false;".to_owned());
         let tokens: Vec<Token> = sc.scan_tokens();
+        println!("{:?}", tokens);
         assert!(tokens[0].token_type == TokenType::NUMBER);
         assert!(tokens[1].token_type == TokenType::MINUS);
         assert!(tokens[2].token_type == TokenType::LeftParen);
@@ -389,6 +389,7 @@ mod tests {
         assert!(tokens[8].token_type == TokenType::NUMBER);
         assert!(tokens[9].token_type == TokenType::EqualEqual);
         assert!(tokens[10].token_type == TokenType::FALSE);
+        assert!(tokens[11].token_type == TokenType::SEMICOLON);
     }
 
     #[test]
