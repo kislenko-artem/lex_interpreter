@@ -401,7 +401,7 @@ impl Environment {
 pub enum Statement {
     Print(Expression),
     VarDeclaration(String, Expression),
-    Empty,
+    Empty(Expression),
 }
 
 impl Statement {
@@ -410,7 +410,9 @@ impl Statement {
             Statement::Print(v) => {
                 println!("{:?}", Expression::execute(v));
             }
-            Statement::Empty => {}
+            Statement::Empty(v) => {
+                Expression::execute(v);
+            }
             Statement::VarDeclaration(name, v) => {
                 env.global_vars.insert(name, Expression::execute(v));
             }
@@ -461,11 +463,11 @@ impl Parser {
         };
     }
 
-    pub fn expression(&mut self, env: &Environment) -> Expression {
-        return self.equality(env);
+    pub fn expression(&mut self, env: &mut Environment) -> Expression {
+        return self.assignment(env);
     }
 
-    pub fn statement(&mut self, env: &Environment) -> Vec<Statement> {
+    pub fn statement(&mut self, env: &mut Environment) -> Vec<Statement> {
         let mut statmets = vec![];
         loop {
             if self.current >= self.tokens.len() - 1 {
@@ -479,7 +481,9 @@ impl Parser {
                 TokenType::VAR => {
                     statmets.push(self.declaration(env));
                 }
-                _ => {}
+                _ => {
+                    statmets.push(Statement::Empty(self.expression(env)));
+                }
             }
             self.current += 1;
         }
@@ -523,7 +527,7 @@ impl Parser {
 
     // statement
 
-    fn print_st(&mut self, env: &Environment) -> Statement {
+    fn print_st(&mut self, env: &mut Environment) -> Statement {
         self.current += 1;
         let expr = self.expression(env);
         self.consume(
@@ -533,10 +537,10 @@ impl Parser {
         return Statement::Print(expr);
     }
 
-    fn declaration(&mut self, env: &Environment) -> Statement {
+    fn declaration(&mut self, env: &mut Environment) -> Statement {
         let tkn = &self.tokens[self.current];
         if tkn.token_type != TokenType::VAR {
-            return Statement::Empty
+            return Statement::Empty(Expression::Literal(Literal::Nil))
         }
         self.current += 1;
         self.consume(
@@ -562,7 +566,24 @@ impl Parser {
 
     // not statement
 
-    fn equality(&mut self, env: &Environment) -> Expression {
+    fn assignment(&mut self, env: &mut Environment) -> Expression {
+        let expr = self.equality(env);
+        if self.current >= self.tokens.len() - 1 {
+            return expr;
+        }
+        while self.math(vec![TokenType::EQUAL]) {
+            let variable = self.tokens[self.current - 2].lexeme.clone();
+            if env.global_vars.get(&variable).is_none() {
+                panic!("not initial variable")
+            }
+            let expr = self.assignment(env);
+            env.global_vars.insert(variable, Expression::execute(expr));
+        }
+
+        return expr;
+    }
+
+    fn equality(&mut self, env: &mut Environment) -> Expression {
         let mut expr = self.comparison(env);
         if self.current >= self.tokens.len() - 1 {
             return expr;
@@ -580,7 +601,7 @@ impl Parser {
         return expr;
     }
 
-    fn comparison(&mut self, env: &Environment) -> Expression {
+    fn comparison(&mut self, env: &mut Environment) -> Expression {
         let mut expr = self.term(env);
         if self.current >= self.tokens.len() - 1 {
             return expr;
@@ -599,7 +620,7 @@ impl Parser {
         return expr;
     }
 
-    fn term(&mut self, env: &Environment) -> Expression {
+    fn term(&mut self, env: &mut Environment) -> Expression {
         let mut expr = self.factor(env);
         if self.current >= self.tokens.len() - 1 {
             return expr;
@@ -618,7 +639,7 @@ impl Parser {
         return expr;
     }
 
-    fn factor(&mut self, env: &Environment) -> Expression {
+    fn factor(&mut self, env: &mut Environment) -> Expression {
         let mut expr = self.unary(env);
         if self.current >= self.tokens.len() - 1 {
             return expr;
@@ -637,7 +658,7 @@ impl Parser {
         return expr;
     }
 
-    fn unary(&mut self, env: &Environment) -> Expression {
+    fn unary(&mut self, env: &mut Environment) -> Expression {
         if self.math(vec![TokenType::BANG, TokenType::MINUS]) {
             let operator = get_unary_operator(self.tokens[self.current-1].token_type);
             let expr = self.unary(env);
@@ -649,7 +670,7 @@ impl Parser {
         return self.primary(env);
     }
 
-    fn primary(&mut self, env: &Environment) -> Expression {
+    fn primary(&mut self, env: &mut Environment) -> Expression {
         let tkn = &self.tokens[self.current];
         self.current += 1;
         match tkn.token_type {
@@ -706,19 +727,19 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::ast::{Parser, Expression, Literal, Environment};
+    use crate::lexer::ast::{Parser, Expression, Literal, Environment, Statement};
     use crate::lexer::tokens::{Token, TokenType};
 
     #[test]
     fn less() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::NUMBER, "1".to_owned()),
             Token::new(TokenType::LESS, "".to_owned()),
             Token::new(TokenType::NUMBER, "2".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
+        let tree = prsr.expression(&mut env);
         assert_eq!(Expression::execute(tree), Literal::Bool(true));
 
         let tokens = vec![
@@ -727,21 +748,21 @@ mod tests {
             Token::new(TokenType::NUMBER, "1".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(false));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(false));
     }
 
     #[test]
     fn less_eq() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::LessEqual, "".to_owned()),
             Token::new(TokenType::NUMBER, "2".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(true));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(true));
 
         let tokens = vec![
             Token::new(TokenType::NUMBER, "2".to_owned()),
@@ -749,21 +770,21 @@ mod tests {
             Token::new(TokenType::NUMBER, "1".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(false));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(false));
     }
 
     #[test]
     fn bigger() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::GREATER, "".to_owned()),
             Token::new(TokenType::NUMBER, "1".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(true));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(true));
 
         let tokens = vec![
             Token::new(TokenType::NUMBER, "1".to_owned()),
@@ -771,39 +792,39 @@ mod tests {
             Token::new(TokenType::NUMBER, "2".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(false));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(false));
     }
 
     #[test]
     fn equal_equal_parce() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::EqualEqual, "==".to_owned()),
             Token::new(TokenType::NUMBER, "2".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(true));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(true));
     }
 
     #[test]
     fn bang_equal_parce() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::BangEqual, "!=".to_owned()),
             Token::new(TokenType::NUMBER, "2".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(false));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(false));
     }
 
     #[test]
     fn unary_equal_parce() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::BANG, "".to_owned()),
             Token::new(TokenType::TRUE, "".to_owned()),
@@ -811,8 +832,8 @@ mod tests {
             Token::new(TokenType::TRUE, "".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(false));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(false));
 
         let tokens = vec![
             Token::new(TokenType::BANG, "".to_owned()),
@@ -821,13 +842,13 @@ mod tests {
             Token::new(TokenType::TRUE, "".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Bool(true));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Bool(true));
     }
 
     #[test]
     fn multiply_unary() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::MINUS, "-".to_owned()),
             Token::new(TokenType::NUMBER, "1".to_owned()),
@@ -835,14 +856,14 @@ mod tests {
             Token::new(TokenType::NUMBER, "3".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Float(-3.0));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Float(-3.0));
 
     }
 
     #[test]
     fn plus_num() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::NUMBER, "4".to_owned()),
             Token::new(TokenType::PLUS, "+".to_owned()),
@@ -851,13 +872,13 @@ mod tests {
             Token::new(TokenType::NUMBER, "2".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Float(5.0));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Float(5.0));
     }
 
     #[test]
     fn plus_str() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::STRING, "2".to_owned()),
             Token::new(TokenType::PLUS, "+".to_owned()),
@@ -866,13 +887,13 @@ mod tests {
             Token::new(TokenType::STRING, "5".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Str("235".to_owned()));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Str("235".to_owned()));
     }
 
     #[test]
     fn plus_parce_paren() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::NUMBER, "8".to_owned()),
             Token::new(TokenType::MINUS, "-".to_owned()),
@@ -883,13 +904,13 @@ mod tests {
             Token::new(TokenType::RightParen, ")".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Float(1.0));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Float(1.0));
     }
 
     #[test]
     fn factor() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::NUMBER, "2".to_owned()),
             Token::new(TokenType::PLUS, "+".to_owned()),
@@ -898,13 +919,13 @@ mod tests {
             Token::new(TokenType::NUMBER, "5".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Float(17.0));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Float(17.0));
     }
 
     #[test]
     fn factor_paren() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::LeftParen, "".to_owned()),
             Token::new(TokenType::NUMBER, "3".to_owned()),
@@ -915,20 +936,50 @@ mod tests {
             Token::new(TokenType::NUMBER, "5".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.expression(&env);
-        assert!(Expression::execute(tree) == Literal::Float(18.0));
+        let tree = prsr.expression(&mut env);
+        assert_eq!(Expression::execute(tree), Literal::Float(18.0));
     }
 
     #[test]
     fn print_st() {
-        let env: Environment = Environment::new();
+        let mut env: Environment = Environment::new();
         let tokens = vec![
             Token::new(TokenType::PRINT, "".to_owned()),
             Token::new(TokenType::STRING, "3".to_owned()),
             Token::new(TokenType::SEMICOLON, "+".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.statement(&env);
-        println!("{:?}", tree)
+        let tree = prsr.statement(&mut env);
+        // println!("{:?}", tree)
+    }
+
+    #[test]
+    fn assigment() {
+        let mut env: Environment = Environment::new();
+        let tokens = vec![
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.statement(&mut env);
+        for d in tree {
+            Statement::execute(d, &mut env);
+        }
+
+        let tokens = vec![
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let tree = prsr.statement(&mut env);
+        for d in tree {
+            Statement::execute(d, &mut env);
+        }
+        assert_eq!(Some(Literal::Float(2.0)), env.global_vars.get("a").cloned());
     }
 }
