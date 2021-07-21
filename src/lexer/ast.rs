@@ -47,6 +47,12 @@ pub enum Expression {
         name: String,
         value: Box<Expression>,
     },
+    Logical {
+        left: Box<Expression>,
+        operator: TokenType,
+        right: Box<Expression>,
+
+    }
 }
 
 impl Expression {
@@ -405,6 +411,50 @@ impl Expression {
                 let v = Expression::execute(*value.clone(), env);
                 env.global_vars.insert(name, v);
             }
+            Expression::Logical{left, operator, right} => {
+                let l = Expression::execute(*left.clone(), env);
+                let r = Expression::execute(*right.clone(), env);
+                match operator {
+                    TokenType::AND => {
+                        match l {
+                            Literal::Bool(l) => {
+                                match r {
+                                    Literal::Bool(r) => {
+                                        return Literal::Bool(r == l);
+                                    }
+                                    _ => {
+                                        panic!("wrong right logical operator")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong left logical operator")
+                            }
+                        }
+                    }
+                    TokenType::OR => {
+                        match l {
+                            Literal::Bool(l) => {
+                                match r {
+                                    Literal::Bool(r) => {
+                                        return Literal::Bool(r || l);
+                                    }
+                                    _ => {
+                                        panic!("wrong right logical operator")
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong left logical operator")
+                            }
+                        }
+                    }
+                    _ => {
+                        panic!("wrong logical operator")
+                    }
+                }
+
+            }
         }
         panic!("wrong token")
     }
@@ -426,6 +476,7 @@ pub enum Statement {
     VarDeclaration(String, Expression),
     Box(Vec<Statement>),
     Empty(Expression),
+    If(Expression, Vec<Statement>, Vec<Statement>),
 }
 
 impl Statement {
@@ -448,6 +499,29 @@ impl Statement {
                         new_env.global_vars.insert(key, val.clone());
                     }
                     Statement::execute(stmts, &mut new_env);
+                }
+                Statement::If(cond, if_stmt, else_stmt) => {
+                    let literal = Expression::execute(cond, env);
+                    match literal {
+                        Literal::Bool(v) => {
+                            match v {
+                                true => {
+                                    Statement::execute(if_stmt, env);
+                                }
+                                false => {
+                                    Statement::execute(else_stmt, env);
+                                }
+                            }
+                        }
+                        Literal::Nil => {
+                            if else_stmt.len() > 0 {
+                                Statement::execute(else_stmt, env);
+                            }
+                        }
+                        _ => {
+                            panic!("wrong condition")
+                        }
+                    }
                 }
             }
         }
@@ -501,17 +575,17 @@ impl Parser {
         return self.assignment();
     }
 
-    pub fn statement_checker(&mut self, statmets: &mut Vec<Statement>) {
+    pub fn statement_checker(&mut self, statmets: &mut Vec<Statement>) -> bool {
         let tkn = &self.tokens[self.current];
         match tkn.token_type {
             TokenType::PRINT => {
                 statmets.push(self.print_st());
             }
             TokenType::VAR => {
-                statmets.push(self.declaration());
+                statmets.push(self.declaration_st());
             }
             TokenType::RightBrace => {
-                return;
+                return true;
             },
             TokenType::LeftBrace => {
                 self.current += 1;
@@ -529,19 +603,28 @@ impl Parser {
                 }
                 statmets.push(Statement::Box(new_statmets));
             }
+            TokenType::IF => {
+                statmets.push(self.if_st());
+            }
+            TokenType::ELSE => {
+                return false
+            }
             _ => {
                 statmets.push(Statement::Empty(self.expression()));
             }
         }
+        return true
     }
 
-    pub fn statement(&mut self, env: &mut Environment) -> Vec<Statement> {
+    pub fn statement(&mut self) -> Vec<Statement> {
         let mut statmets = vec![];
         loop {
             if self.current >= self.tokens.len() - 1 {
                 return statmets;
             }
-            self.statement_checker(&mut statmets);
+            if !self.statement_checker(&mut statmets) {
+                return statmets;
+            }
             self.current += 1;
         }
 
@@ -594,7 +677,36 @@ impl Parser {
         return Statement::Print(expr);
     }
 
-    fn declaration(&mut self) -> Statement {
+    fn if_st(&mut self) -> Statement {
+        self.current += 1;
+        self.consume(
+            vec![TokenType::LeftParen],
+            "Expect \'LeftParen\' after if expression".to_owned(),
+        );
+        self.current += 1;
+        let cond = self.expression();
+        self.current -= 1;
+        self.consume(
+            vec![TokenType::RightParen],
+            "Expect \'RightParen\' after if expression".to_owned(),
+        );
+        self.current += 1;
+        let then_stm = self.statement();
+        let mut else_stm: Vec<Statement> = vec![];
+
+        if self.current >= self.tokens.len() {
+            return Statement::If(cond, then_stm, else_stm);
+        }
+
+        let tkn = &self.tokens[self.current];
+        if tkn.token_type == TokenType::ELSE {
+            self.current += 1;
+            else_stm = self.statement();
+        }
+        return Statement::If(cond, then_stm, else_stm);
+    }
+
+    fn declaration_st(&mut self) -> Statement {
         let tkn = &self.tokens[self.current];
         if tkn.token_type != TokenType::VAR {
             return Statement::Empty(Expression::Literal(Literal::Nil))
@@ -624,7 +736,7 @@ impl Parser {
     // not statement
 
     fn assignment(&mut self) -> Expression {
-        let mut expr = self.equality();
+        let mut expr = self.or();
         if self.current >= self.tokens.len() - 1 {
             return expr;
         }
@@ -640,6 +752,40 @@ impl Parser {
             }
         }
 
+        return expr;
+    }
+
+    fn or(&mut self) -> Expression {
+        let mut expr = self.and();
+        if self.current >= self.tokens.len() - 1 {
+            return expr;
+        }
+        while self.math(vec![TokenType::OR]) {
+            let left = self.tokens[self.current - 2].lexeme.clone();
+            let operator = self.tokens[self.current - 1].token_type;
+            expr = Expression::Logical {
+                left: Box::new(expr),
+                right: Box::new(self.and()),
+                operator,
+            }
+        }
+        return expr;
+    }
+
+    fn and(&mut self) -> Expression {
+        let mut expr = self.equality();
+        if self.current >= self.tokens.len() - 1 {
+            return expr;
+        }
+        while self.math(vec![TokenType::AND]) {
+            let left = self.tokens[self.current - 2].lexeme.clone();
+            let operator = self.tokens[self.current - 1].token_type;
+            expr = Expression::Logical {
+                left: Box::new(expr),
+                right: Box::new(self.equality()),
+                operator,
+            }
+        }
         return expr;
     }
 
@@ -1001,7 +1147,7 @@ mod tests {
             Token::new(TokenType::SEMICOLON, "+".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.statement(&mut env);
+        let tree = prsr.statement();
         // println!("{:?}", tree)
     }
 
@@ -1016,7 +1162,7 @@ mod tests {
             Token::new(TokenType::SEMICOLON, ";".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.statement(&mut env);
+        let tree = prsr.statement();
         Statement::execute(tree, &mut env);
 
         let tokens = vec![
@@ -1026,7 +1172,7 @@ mod tests {
             Token::new(TokenType::SEMICOLON, ";".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let tree = prsr.statement(&mut env);
+        let tree = prsr.statement();
         Statement::execute(tree, &mut env);
         assert_eq!(Some(Literal::Float(2.0)), env.global_vars.get("a").cloned());
     }
@@ -1057,7 +1203,7 @@ mod tests {
             Token::new(TokenType::SEMICOLON, ";".to_owned()),
         ];
         let mut prsr: Parser = Parser::new(tokens);
-        let stmts = prsr.statement(&mut env);
+        let stmts = prsr.statement();
         Statement::execute(stmts, &mut env);
         assert_eq!(Some(Literal::Float(1.0)), env.global_vars.get("a").cloned());
     }
