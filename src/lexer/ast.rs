@@ -41,6 +41,11 @@ pub enum Expression {
         operator: Operator,
         expr: Box<Expression>,
     },
+    Call {
+        expr: Box<Expression>,
+        operator: Token,
+        arguments: Vec<Expression>,
+    },
     Literal(Literal),
     Grouping { expr: Box<Expression> },
     Assigment {
@@ -440,11 +445,15 @@ impl Expression {
                     }
                 }
             }
+            Expression::Call {expr, operator, arguments} => {
+
+            }
         }
         panic!("wrong expr {:?}", expr)
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Environment {
     pub global_vars: HashMap<String, Literal>,
 }
@@ -459,6 +468,7 @@ impl Environment {
 pub enum Statement {
     Print(Expression),
     VarDeclaration(String, Expression),
+    FunDeclaration(String, Vec<Token>, Vec<Statement>),
     Box(Vec<Statement>),
     Empty(Expression),
     If(Expression, Vec<Statement>, Vec<Statement>),
@@ -526,6 +536,9 @@ impl Statement {
                         }
                     }
                 }
+                Statement::FunDeclaration(name, arguments, body) => {
+
+                }
             }
         }
     }
@@ -588,22 +601,8 @@ impl Parser {
                 statmets.push(self.declaration_st());
             }
             TokenType::LeftBrace => {
-                self.current += 1;
-                let mut new_statmets = vec![];
-                loop {
-                    if self.current >= self.tokens.len() - 1 {
-                        break;
-                    }
-                    let tkn = &self.tokens[self.current];
-                    if tkn.token_type == TokenType::RightBrace {
-                        break;
-                    }
-                    if !self.statement_checker(&mut new_statmets) {
-                        statmets.push(Statement::Box(new_statmets));
-                        return true;
-                    }
-                    self.current += 1;
-                }
+                let mut new_statmets: Vec<Statement> = vec![];
+                self.box_st(&mut new_statmets);
                 statmets.push(Statement::Box(new_statmets));
             }
             TokenType::IF => {
@@ -611,6 +610,10 @@ impl Parser {
             }
             TokenType::WHILE => {
                 statmets.push(self.while_st());
+            }
+            TokenType::FUN => {
+                statmets.push(self.fun_st());
+
             }
             TokenType::RightBrace => {
                 return true;
@@ -681,6 +684,20 @@ impl Parser {
     }
 
     // statement
+    fn box_st(&mut self, new_statmets: &mut Vec<Statement>) {
+        self.current += 1;
+        loop {
+            if self.current >= self.tokens.len() - 1 {
+                break;
+            }
+            let tkn = &self.tokens[self.current];
+            if tkn.token_type == TokenType::RightBrace {
+                break;
+            }
+            self.statement_checker(new_statmets);
+            self.current += 1;
+        }
+    }
 
     fn print_st(&mut self) -> Statement {
         self.current += 1;
@@ -690,6 +707,33 @@ impl Parser {
             "Expect \';\' after expression".to_owned(),
         );
         return Statement::Print(expr);
+    }
+
+    fn fun_st(&mut self) -> Statement {
+        self.consume(
+            vec![TokenType::IDENTIFIER],
+            "Expect \'fun name\' after fun expression".to_owned(),
+        );
+        let mut tkn = &self.tokens[self.current];
+        let fun_name = tkn.lexeme.clone();
+        self.current += 1;
+        self.consume(
+            vec![TokenType::LeftParen],
+            "Expect \'LeftParen\' after fun expression".to_owned(),
+        );
+        self.current += 1;
+        let mut params: Vec<Token> = vec![];
+        let mut tkn = &self.tokens[self.current];
+        loop {
+            if tkn.token_type == TokenType::RightParen {
+                break
+            }
+            let mut tkn = &self.tokens[self.current];
+            params.push(tkn.clone());
+        }
+        let mut new_statmets: Vec<Statement> = vec![];
+        self.box_st(&mut new_statmets);
+        return Statement::FunDeclaration(fun_name, params, new_statmets);
     }
 
     fn while_st(&mut self) -> Statement {
@@ -908,8 +952,48 @@ impl Parser {
                 operator: operator,
             };
         }
-        return self.primary();
+        return self.call();
     }
+
+    fn call(&mut self) -> Expression {
+        let mut expr = self.primary();
+        if self.current >= self.tokens.len() - 1 {
+            return expr;
+        }
+        loop {
+            if self.math(vec![TokenType::LeftParen]) {
+                expr = self.finishCall(expr);
+                continue;
+            }
+            break;
+        }
+        return expr;
+    }
+
+    fn finishCall(&mut self, callee: Expression) -> Expression {
+        let mut tkn = self.tokens[self.current - 1].clone();
+        let token_start = tkn.clone();
+        let mut expr_list: Vec<Expression> = vec![];
+
+        if tkn.token_type == TokenType::RightParen {
+            return Expression::Call {operator: token_start, arguments: expr_list, expr: Box::new(callee)}
+        }
+
+        loop {
+            tkn = self.tokens[self.current - 1].clone();
+            if tkn.token_type == TokenType::RightParen {
+                break
+            }
+            if tkn.token_type == TokenType::COMMA {
+                break
+            }
+            expr_list.push(self.expression());
+            self.current += 1;
+        }
+
+        return Expression::Call {operator: token_start, arguments: expr_list, expr: Box::new(callee)}
+    }
+
 
     fn primary(&mut self) -> Expression {
         let tkn = &self.tokens[self.current];
@@ -1239,4 +1323,108 @@ mod tests {
     //     Statement::execute(stmts, &mut env);
     //     assert_eq!(Some(Literal::Float(1.0)), env.global_vars.get("a").cloned());
     // }
+
+
+    #[test]
+    fn if_assigment() {
+        let mut env: Environment = Environment::new();
+        let tokens = vec![
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::IF, "".to_owned()),
+            Token::new(TokenType::LeftParen, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EqualEqual, "".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::RightParen, "".to_owned()),
+            Token::new(TokenType::LeftBrace, "}".to_owned()),
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::RightBrace, "}".to_owned()),
+            Token::new(TokenType::ELSE, "".to_owned()),
+            Token::new(TokenType::LeftBrace, "}".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "0".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::RightBrace, "}".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let stmts = prsr.statement(-1);
+        Statement::execute(stmts, &mut env);
+        assert_eq!(Some(Literal::Float(2.0)), env.global_vars.get("a").cloned());
+    }
+
+    #[test]
+    fn else_assigment() {
+        let mut env: Environment = Environment::new();
+        let tokens = vec![
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::IF, "".to_owned()),
+            Token::new(TokenType::LeftParen, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EqualEqual, "".to_owned()),
+            Token::new(TokenType::NUMBER, "0".to_owned()),
+            Token::new(TokenType::RightParen, "".to_owned()),
+            Token::new(TokenType::LeftBrace, "}".to_owned()),
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::RightBrace, "}".to_owned()),
+            Token::new(TokenType::ELSE, "".to_owned()),
+            Token::new(TokenType::LeftBrace, "}".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "0".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::RightBrace, "}".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let stmts = prsr.statement(-1);
+        Statement::execute(stmts, &mut env);
+        assert_eq!(Some(Literal::Float(0.0)), env.global_vars.get("a").cloned());
+    }
+
+    #[test]
+    fn while_assigment() {
+        let mut env: Environment = Environment::new();
+        let tokens = vec![
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::WHILE, "".to_owned()),
+            Token::new(TokenType::LeftParen, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::LESS, "".to_owned()),
+            Token::new(TokenType::NUMBER, "10".to_owned()),
+            Token::new(TokenType::RightParen, "".to_owned()),
+            Token::new(TokenType::LeftBrace, "}".to_owned()),
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::NUMBER, "2".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::RightBrace, "}".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let stmts = prsr.statement(-1);
+        Statement::execute(stmts, &mut env);
+        assert_eq!(Some(Literal::Float(11.0)), env.global_vars.get("a").cloned());
+    }
 }
