@@ -227,7 +227,7 @@ impl Scanner {
                                     if c_string == " " {
                                         break;
                                     }
-                                    if c_string == ";" || c_string == "=" || c_string == ">" || c_string == "<" || c_string == "+" || c_string == "-" || c_string == "*" || c_string == "/" || c_string == ")" || c_string == "(" {
+                                    if c_string == ";" || c_string == "=" || c_string == ">" || c_string == "<" || c_string == "+" || c_string == "," || c_string == "-" || c_string == "*" || c_string == "/" || c_string == ")" || c_string == "(" {
                                         self.current -= 1;
                                         break;
                                     }
@@ -426,5 +426,26 @@ mod tests {
         assert!(tokens[0].token_type == TokenType::PRINT);
         assert!(tokens[1].token_type == TokenType::STRING);
         assert!(tokens[2].token_type == TokenType::SEMICOLON);
+    }
+
+    #[test]
+    fn fun_parce() {
+        let sc = Scanner::new("fun pr(s, t){} pr(1, 2);".to_owned());
+        let tokens: Vec<Token> = sc.scan_tokens();
+        assert!(tokens[0].token_type == TokenType::FUN);
+        assert!(tokens[1].token_type == TokenType::IDENTIFIER);
+        assert!(tokens[2].token_type == TokenType::LeftParen);
+        assert!(tokens[3].token_type == TokenType::IDENTIFIER);
+        assert!(tokens[4].token_type == TokenType::COMMA);
+        assert!(tokens[5].token_type == TokenType::IDENTIFIER);
+        assert!(tokens[6].token_type == TokenType::RightParen);
+        assert!(tokens[7].token_type == TokenType::LeftBrace);
+        assert!(tokens[8].token_type == TokenType::RightBrace);
+        assert!(tokens[9].token_type == TokenType::IDENTIFIER);
+        assert!(tokens[10].token_type == TokenType::LeftParen);
+        assert!(tokens[11].token_type == TokenType::NUMBER);
+        assert!(tokens[12].token_type == TokenType::COMMA);
+        assert!(tokens[13].token_type == TokenType::NUMBER);
+        assert!(tokens[14].token_type == TokenType::RightParen);
     }
 }

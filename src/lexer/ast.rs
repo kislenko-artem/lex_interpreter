@@ -382,7 +382,7 @@ impl Expression {
                         let d = env.global_vars.get(&val);
                         match d {
                             None => {
-                                panic!("wrong variable");
+                                panic!("wrong variable, key: {}");
                             }
                             Some(r_val) => {
                                 return r_val.clone();
@@ -445,16 +445,30 @@ impl Expression {
                     }
                 }
             }
-            Expression::Call {expr, arguments} => {
+            Expression::Call { expr, arguments } => {
                 match *expr {
                     Expression::Literal(v) => {
                         match v {
                             Literal::IDENTIFIER(name) => {
                                 match env.func.get(&name) {
-                                    None => {panic!("wrong function {}", name)}
+                                    None => { panic!("wrong function {}", name) }
                                     Some(data) => {
-                                        // TODO: env должны быть новым, сформированным с учетом аргументов
-                                        Statement::execute(data.clone(), env);
+                                        if data.arguments.len() != arguments.len() {
+                                            panic!("wrong arguments count. Func {}", name)
+                                        }
+                                        let mut new_env = Environment {
+                                            func: env.func.clone(),
+                                            global_vars: env.global_vars.clone(),
+                                        };
+                                        for (i, arg) in arguments.iter().enumerate() {
+                                            let mut current_env = Environment {
+                                                func: env.func.clone(),
+                                                global_vars: env.global_vars.clone(),
+                                            };
+                                            let liter = Expression::execute(arg.clone(), &mut current_env);
+                                            new_env.global_vars.insert(data.arguments[i].lexeme.clone(), liter);
+                                        }
+                                        Statement::execute(data.body.clone(), &mut new_env);
                                     }
                                 }
                             }
@@ -475,9 +489,15 @@ impl Expression {
 }
 
 #[derive(Debug, Clone)]
+pub struct FunBody {
+    pub body: Vec<Statement>,
+    pub arguments: Vec<Token>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Environment {
     pub global_vars: HashMap<String, Literal>,
-    pub func: HashMap<String, Vec<Statement>>,
+    pub func: HashMap<String, FunBody>,
 }
 
 impl Environment {
@@ -554,12 +574,7 @@ impl Statement {
                     }
                 }
                 Statement::FunDeclaration(name, arguments, body) => {
-                    // let mut new_env: Environment = Environment::new();
-                    // for tkn in arguments.clone() {
-                    //      new_env.global_vars.insert(tkn.lexeme, val.clone());
-                    // }
-                    env.func.insert(name, body);
-
+                    env.func.insert(name, FunBody { body, arguments });
                 }
             }
         }
@@ -635,7 +650,6 @@ impl Parser {
             }
             TokenType::FUN => {
                 statmets.push(self.fun_st());
-
             }
             TokenType::RightBrace => {
                 return true;
@@ -739,7 +753,7 @@ impl Parser {
             "Expect \'fun name\' after fun expression".to_owned(),
         );
         self.current += 1;
-        let mut tkn = &self.tokens[self.current];
+        let tkn = &self.tokens[self.current];
         let fun_name = tkn.lexeme.clone();
         self.current += 1;
         self.consume(
@@ -749,9 +763,12 @@ impl Parser {
         let mut params: Vec<Token> = vec![];
         loop {
             self.current += 1;
-            let mut tkn = &self.tokens[self.current];
+            let tkn = &self.tokens[self.current];
             if tkn.token_type == TokenType::RightParen {
-                break
+                break;
+            }
+            if tkn.token_type == TokenType::COMMA {
+                continue;
             }
             params.push(tkn.clone());
         }
@@ -775,7 +792,6 @@ impl Parser {
         );
         self.current += 1;
         let while_stm = self.statement(1);
-        println!("while_stm {:?} ", while_stm, );
         return Statement::While(cond, while_stm);
     }
 
@@ -986,7 +1002,7 @@ impl Parser {
         }
         loop {
             if self.math(vec![TokenType::LeftParen]) {
-                expr = self.finishCall(expr);
+                expr = self.finish_call(expr);
                 continue;
             }
             break;
@@ -994,34 +1010,34 @@ impl Parser {
         return expr;
     }
 
-    fn finishCall(&mut self, callee: Expression) -> Expression {
+    fn finish_call(&mut self, callee: Expression) -> Expression {
         let mut tkn = self.tokens[self.current - 1].clone();
-        let token_start = tkn.clone();
         let mut expr_list: Vec<Expression> = vec![];
 
         if tkn.token_type == TokenType::RightParen {
-            return Expression::Call {arguments: expr_list, expr: Box::new(callee)}
+            return Expression::Call { arguments: expr_list, expr: Box::new(callee) };
         }
 
         loop {
-            tkn = self.tokens[self.current].clone();
-            if tkn.token_type == TokenType::RightParen {
-                break
+            let prev_tkn = self.tokens[self.current - 1].clone();
+            if prev_tkn.token_type == TokenType::RightParen {
+                break;
             }
+            tkn = self.tokens[self.current].clone();
             if tkn.token_type == TokenType::COMMA {
-                break
+                self.current += 1;
+                continue;
             }
             expr_list.push(self.expression());
-            self.current += 1;
         }
 
-        return Expression::Call {arguments: expr_list, expr: Box::new(callee)}
+        return Expression::Call { arguments: expr_list, expr: Box::new(callee) };
     }
-
 
     fn primary(&mut self) -> Expression {
         let tkn = &self.tokens[self.current];
         self.current += 1;
+
         match tkn.token_type {
             TokenType::IDENTIFIER => {
                 return Expression::Literal(Literal::IDENTIFIER(tkn.lexeme.clone()));
@@ -1290,7 +1306,6 @@ mod tests {
         ];
         let mut prsr: Parser = Parser::new(tokens);
         let tree = prsr.statement(-1);
-        // println!("{:?}", tree)
     }
 
     #[test]
@@ -1451,4 +1466,35 @@ mod tests {
         Statement::execute(stmts, &mut env);
         assert_eq!(Some(Literal::Float(11.0)), env.global_vars.get("a").cloned());
     }
+
+    // #[test]
+    // fn fun_assigment() {
+    //     let mut env: Environment = Environment::new();
+    //     let tokens = vec![
+    //         Token::new(TokenType::VAR, "".to_owned()),
+    //         Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+    //         Token::new(TokenType::EQUAL, "=".to_owned()),
+    //         Token::new(TokenType::NUMBER, "1".to_owned()),
+    //         Token::new(TokenType::SEMICOLON, ";".to_owned()),
+    //         Token::new(TokenType::FUN, "".to_owned()),
+    //         Token::new(TokenType::IDENTIFIER, "assigm".to_owned()),
+    //         Token::new(TokenType::LeftParen, "(".to_owned()),
+    //         Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+    //         Token::new(TokenType::COMMA, "".to_owned()),
+    //         Token::new(TokenType::IDENTIFIER, "b".to_owned()),
+    //         Token::new(TokenType::RightParen, ")".to_owned()),
+    //         Token::new(TokenType::LeftBrace, "{".to_owned()),
+    //         // TODO: return
+    //         Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+    //         Token::new(TokenType::PLUS, "+".to_owned()),
+    //         Token::new(TokenType::IDENTIFIER, "b".to_owned()),
+    //         Token::new(TokenType::SEMICOLON, ";".to_owned()),
+    //         Token::new(TokenType::RightBrace, "}".to_owned()),
+    //         // TODO: call function
+    //     ];
+    //     let mut prsr: Parser = Parser::new(tokens);
+    //     let stmts = prsr.statement(-1);
+    //     Statement::execute(stmts, &mut env);
+    //     assert_eq!(Some(Literal::Float(0.0)), env.global_vars.get("a").cloned());
+    // }
 }

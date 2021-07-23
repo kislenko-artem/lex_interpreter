@@ -23,11 +23,12 @@ impl Lox {
     fn run(line: String, mut env: &mut Environment) {
         let sc = Scanner::new(line.to_owned());
         let tokens: Vec<Token> = sc.scan_tokens();
+        //println!("tokens {:?}", tokens.clone());
         let mut prsr: Parser = Parser::new(tokens);
         //let tree = prsr.expression();
         //println!("Result: {:?}", Expression::execute(tree.clone()));
         let stmts = prsr.statement(-1);
-        // println!("stmts {:?}", stmts);
+        //println!("stmts {:?}", stmts);
         Statement::execute(stmts, &mut env);
     }
 }
