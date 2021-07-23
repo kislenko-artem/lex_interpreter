@@ -43,7 +43,7 @@ pub enum Expression {
     },
     Call {
         expr: Box<Expression>,
-        operator: Token,
+        // operator: Token,
         arguments: Vec<Expression>,
     },
     Literal(Literal),
@@ -445,8 +445,29 @@ impl Expression {
                     }
                 }
             }
-            Expression::Call {expr, operator, arguments} => {
-
+            Expression::Call {expr, arguments} => {
+                match *expr {
+                    Expression::Literal(v) => {
+                        match v {
+                            Literal::IDENTIFIER(name) => {
+                                match env.func.get(&name) {
+                                    None => {panic!("wrong function {}", name)}
+                                    Some(data) => {
+                                        // TODO: env должны быть новым, сформированным с учетом аргументов
+                                        Statement::execute(data.clone(), env);
+                                    }
+                                }
+                            }
+                            _ => {
+                                panic!("wrong call IDENTIFIER {:?}", v)
+                            }
+                        }
+                    }
+                    _ => {
+                        panic!("wrong call expr {:?}", expr)
+                    }
+                }
+                return Literal::Nil;
             }
         }
         panic!("wrong expr {:?}", expr)
@@ -456,11 +477,12 @@ impl Expression {
 #[derive(Debug, Clone)]
 pub struct Environment {
     pub global_vars: HashMap<String, Literal>,
+    pub func: HashMap<String, Vec<Statement>>,
 }
 
 impl Environment {
     pub fn new() -> Self {
-        return Environment { global_vars: HashMap::new() };
+        return Environment { global_vars: HashMap::new(), func: HashMap::new() };
     }
 }
 
@@ -490,11 +512,6 @@ impl Statement {
                     env.global_vars.insert(name, v);
                 }
                 Statement::Box(stmts) => {
-                    // TODO: не буду делать разделение области видимости
-                    // let mut new_env: Environment = Environment::new();
-                    // for (key, val) in env.global_vars.clone() {
-                    //     new_env.global_vars.insert(key, val.clone());
-                    // }
                     Statement::execute(stmts, env);
                 }
                 Statement::If(cond, if_stmt, else_stmt) => {
@@ -537,6 +554,11 @@ impl Statement {
                     }
                 }
                 Statement::FunDeclaration(name, arguments, body) => {
+                    // let mut new_env: Environment = Environment::new();
+                    // for tkn in arguments.clone() {
+                    //      new_env.global_vars.insert(tkn.lexeme, val.clone());
+                    // }
+                    env.func.insert(name, body);
 
                 }
             }
@@ -685,17 +707,19 @@ impl Parser {
 
     // statement
     fn box_st(&mut self, new_statmets: &mut Vec<Statement>) {
-        self.current += 1;
         loop {
+            self.current += 1;
             if self.current >= self.tokens.len() - 1 {
                 break;
             }
             let tkn = &self.tokens[self.current];
+            if tkn.token_type == TokenType::LeftBrace {
+                continue;
+            }
             if tkn.token_type == TokenType::RightBrace {
                 break;
             }
             self.statement_checker(new_statmets);
-            self.current += 1;
         }
     }
 
@@ -714,6 +738,7 @@ impl Parser {
             vec![TokenType::IDENTIFIER],
             "Expect \'fun name\' after fun expression".to_owned(),
         );
+        self.current += 1;
         let mut tkn = &self.tokens[self.current];
         let fun_name = tkn.lexeme.clone();
         self.current += 1;
@@ -721,14 +746,13 @@ impl Parser {
             vec![TokenType::LeftParen],
             "Expect \'LeftParen\' after fun expression".to_owned(),
         );
-        self.current += 1;
         let mut params: Vec<Token> = vec![];
-        let mut tkn = &self.tokens[self.current];
         loop {
+            self.current += 1;
+            let mut tkn = &self.tokens[self.current];
             if tkn.token_type == TokenType::RightParen {
                 break
             }
-            let mut tkn = &self.tokens[self.current];
             params.push(tkn.clone());
         }
         let mut new_statmets: Vec<Statement> = vec![];
@@ -976,11 +1000,11 @@ impl Parser {
         let mut expr_list: Vec<Expression> = vec![];
 
         if tkn.token_type == TokenType::RightParen {
-            return Expression::Call {operator: token_start, arguments: expr_list, expr: Box::new(callee)}
+            return Expression::Call {arguments: expr_list, expr: Box::new(callee)}
         }
 
         loop {
-            tkn = self.tokens[self.current - 1].clone();
+            tkn = self.tokens[self.current].clone();
             if tkn.token_type == TokenType::RightParen {
                 break
             }
@@ -991,7 +1015,7 @@ impl Parser {
             self.current += 1;
         }
 
-        return Expression::Call {operator: token_start, arguments: expr_list, expr: Box::new(callee)}
+        return Expression::Call {arguments: expr_list, expr: Box::new(callee)}
     }
 
 
