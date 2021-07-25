@@ -382,7 +382,7 @@ impl Expression {
                         let d = env.global_vars.get(&val);
                         match d {
                             None => {
-                                panic!("wrong variable, key: {}");
+                                panic!("wrong variable, key: {}", val);
                             }
                             Some(r_val) => {
                                 return r_val.clone();
@@ -468,7 +468,7 @@ impl Expression {
                                             let liter = Expression::execute(arg.clone(), &mut current_env);
                                             new_env.global_vars.insert(data.arguments[i].lexeme.clone(), liter);
                                         }
-                                        Statement::execute(data.body.clone(), &mut new_env);
+                                        return Statement::execute(data.body.clone(), &mut new_env);
                                     }
                                 }
                             }
@@ -481,7 +481,6 @@ impl Expression {
                         panic!("wrong call expr {:?}", expr)
                     }
                 }
-                return Literal::Nil;
             }
         }
         panic!("wrong expr {:?}", expr)
@@ -515,11 +514,15 @@ pub enum Statement {
     Empty(Expression),
     If(Expression, Vec<Statement>, Vec<Statement>),
     While(Expression, Vec<Statement>),
+    Return(Token, Expression)
 }
 
 impl Statement {
-    pub fn execute(stmts: Vec<Statement>, env: &mut Environment) {
+    pub fn execute(stmts: Vec<Statement>, env: &mut Environment) -> Literal {
+        let mut literal = Literal::Nil;
+
         for st in stmts {
+            //println!("st {:?}", st);
             match st {
                 Statement::Print(v) => {
                     println!("{:?}", Expression::execute(v, env));
@@ -576,8 +579,14 @@ impl Statement {
                 Statement::FunDeclaration(name, arguments, body) => {
                     env.func.insert(name, FunBody { body, arguments });
                 }
+                Statement::Return(_token, expression) => {
+                    literal = Expression::execute(expression, env);
+                }
+
             }
         }
+
+        return literal;
     }
 }
 
@@ -650,6 +659,9 @@ impl Parser {
             }
             TokenType::FUN => {
                 statmets.push(self.fun_st());
+            }
+            TokenType::RETURN => {
+                statmets.push(self.return_st());
             }
             TokenType::RightBrace => {
                 return true;
@@ -775,6 +787,22 @@ impl Parser {
         let mut new_statmets: Vec<Statement> = vec![];
         self.box_st(&mut new_statmets);
         return Statement::FunDeclaration(fun_name, params, new_statmets);
+    }
+
+    fn return_st(&mut self) -> Statement {
+        let keyword = self.tokens[self.current].clone();
+        let mut value = Expression::Literal(Literal::Nil);
+        let tkn = &self.tokens[self.current];
+        if tkn.token_type == TokenType::SEMICOLON {
+            return Statement::Return(keyword.clone(), value);
+        }
+        self.consume(
+            vec![TokenType::SEMICOLON],
+            "Expect \'SEMICOLON\' after return expression".to_owned(),
+        );
+        self.current += 1;
+        value = self.expression();
+        return Statement::Return(keyword.clone(), value);
     }
 
     fn while_st(&mut self) -> Statement {
@@ -1467,34 +1495,45 @@ mod tests {
         assert_eq!(Some(Literal::Float(11.0)), env.global_vars.get("a").cloned());
     }
 
-    // #[test]
-    // fn fun_assigment() {
-    //     let mut env: Environment = Environment::new();
-    //     let tokens = vec![
-    //         Token::new(TokenType::VAR, "".to_owned()),
-    //         Token::new(TokenType::IDENTIFIER, "a".to_owned()),
-    //         Token::new(TokenType::EQUAL, "=".to_owned()),
-    //         Token::new(TokenType::NUMBER, "1".to_owned()),
-    //         Token::new(TokenType::SEMICOLON, ";".to_owned()),
-    //         Token::new(TokenType::FUN, "".to_owned()),
-    //         Token::new(TokenType::IDENTIFIER, "assigm".to_owned()),
-    //         Token::new(TokenType::LeftParen, "(".to_owned()),
-    //         Token::new(TokenType::IDENTIFIER, "a".to_owned()),
-    //         Token::new(TokenType::COMMA, "".to_owned()),
-    //         Token::new(TokenType::IDENTIFIER, "b".to_owned()),
-    //         Token::new(TokenType::RightParen, ")".to_owned()),
-    //         Token::new(TokenType::LeftBrace, "{".to_owned()),
-    //         // TODO: return
-    //         Token::new(TokenType::IDENTIFIER, "a".to_owned()),
-    //         Token::new(TokenType::PLUS, "+".to_owned()),
-    //         Token::new(TokenType::IDENTIFIER, "b".to_owned()),
-    //         Token::new(TokenType::SEMICOLON, ";".to_owned()),
-    //         Token::new(TokenType::RightBrace, "}".to_owned()),
-    //         // TODO: call function
-    //     ];
-    //     let mut prsr: Parser = Parser::new(tokens);
-    //     let stmts = prsr.statement(-1);
-    //     Statement::execute(stmts, &mut env);
-    //     assert_eq!(Some(Literal::Float(0.0)), env.global_vars.get("a").cloned());
-    // }
+    #[test]
+    fn fun_assigment() {
+        let mut env: Environment = Environment::new();
+        let tokens = vec![
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::FUN, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "assigm".to_owned()),
+            Token::new(TokenType::LeftParen, "(".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::COMMA, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "b".to_owned()),
+            Token::new(TokenType::RightParen, ")".to_owned()),
+            Token::new(TokenType::LeftBrace, "{".to_owned()),
+
+            Token::new(TokenType::RETURN, "return".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "a".to_owned()),
+            Token::new(TokenType::PLUS, "+".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "b".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+            Token::new(TokenType::RightBrace, "}".to_owned()),
+
+            Token::new(TokenType::VAR, "".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "res".to_owned()),
+            Token::new(TokenType::EQUAL, "=".to_owned()),
+            Token::new(TokenType::IDENTIFIER, "assigm".to_owned()),
+            Token::new(TokenType::LeftParen, "(".to_owned()),
+            Token::new(TokenType::NUMBER, "1".to_owned()),
+            Token::new(TokenType::COMMA, ",".to_owned()),
+            Token::new(TokenType::NUMBER, "10".to_owned()),
+            Token::new(TokenType::RightParen, ")".to_owned()),
+            Token::new(TokenType::SEMICOLON, ";".to_owned()),
+        ];
+        let mut prsr: Parser = Parser::new(tokens);
+        let stmts = prsr.statement(-1);
+        Statement::execute(stmts, &mut env);
+        assert_eq!(Some(Literal::Float(11.0)), env.global_vars.get("res").cloned());
+    }
 }
