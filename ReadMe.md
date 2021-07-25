@@ -1,4 +1,4 @@
-### Simplified implementation interpreter of language: [Lex](https://craftinginterpreters.coml)
+### Simplified implementation interpreter of language: [Lex](https://craftinginterpreters.com)
 
 More full implementation the language on Rust: 
 
